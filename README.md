@@ -33,20 +33,22 @@ Application
   * Testes unitarios dos serviços de produto e pedido
 
 ## Modelagem
-Produto
-* Nome
-* Preço
-* Tipo de Produto (Sanduiche, Batata-frita, Refrigerante)
+Product
+* Name
+* Price
+* ProductType (Sanduiche, Batata-frita, Refrigerante)
   
-Pedido
+Order
 * Subtotal
 * Discount
 * Total
   
-Itens do Pedido
-* Nome do produto
-* Tipo do produto
-* Preço no momento da compra
+OrderItem
+* ProductName
+* CurrentPrice
+* ProductType
+* OrderId
+* ProductId
 
 O preço é salvo no pedido para evitar inconsistências em relatórios futuros, pois como é possivel editar o preço de um produto, não faria sentido o resultado 
 usar os valores atuais do produto sendo que na data que foi realizado o pedido, os valores eram diferentes.
