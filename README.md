@@ -1,8 +1,8 @@
 ## Arquitetura
 
-**O projeto foi estruturado usando Arquitetura Cebola, mantendo uma boa separação de responsabilidades.
+O projeto foi estruturado usando Arquitetura Cebola, mantendo uma boa separação de responsabilidades.
 Como o problema é relativamente simples, essa arquitetura já atende bem, deixando o código organizado e as regras de negócio fáceis de entender, sem adicionar complexidade desnecessária.
-Optei por não usar CQRS, pois para esse cenário não faria muito sentido separar leitura e escrita. Acabaria deixando a aplicação mais complexa sem trazer um ganho real.**
+Optei por não usar CQRS, pois para esse cenário não faria muito sentido separar leitura e escrita. Acabaria deixando a aplicação mais complexa sem trazer um ganho real.
 
 ### Core
   Domain
