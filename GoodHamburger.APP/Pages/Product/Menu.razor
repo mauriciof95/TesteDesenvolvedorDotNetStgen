@@ -1,0 +1,70 @@
+@page "/menu"
+@using GoodHamburger.APP.Extensions
+@using GoodHamburger.APP.Models.Product
+@using Microsoft.AspNetCore.Components.Web
+@using System.Text.Json
+@inject HttpClient http
+
+<PageTitle>Cardápio</PageTitle>
+
+<h2>Cardápio</h2>
+
+@if (Categories == null)
+{
+    <p>Carregando cardápio...</p>
+}
+else if (!Categories.Any())
+{
+    <p class="text-muted">Nenhum produto disponível no momento.</p>
+}
+else
+{
+    @foreach (var category in Categories)
+    {
+        <div class="card shadow my-4 border-0 rounded-3">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">@category.Group</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @foreach (var item in category.Items)
+                    {
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">@item.Name</h5>
+                                    <p class="card-text text-success fw-bold">@item.Price</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    List<MenuCategory> Categories { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMenu();
+    }
+
+    async Task LoadMenu()
+    {
+        var httpResponse = await http.GetAsync("Product/menu");
+
+        if (httpResponse.IsSuccessStatusCode)
+        {
+            var responseString = await httpResponse.Content.ReadAsStringAsync();
+            Categories = JsonSerializer.Deserialize<List<MenuCategory>>(
+                responseString,
+                new JsonSerializerOptions()
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new List<MenuCategory>();
+        }
+    }
+}

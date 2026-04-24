@@ -1,0 +1,214 @@
+@page "/orders/new"
+@using GoodHamburger.APP.Extensions
+@using GoodHamburger.APP.Models.Order
+@using GoodHamburger.APP.Models.Product
+@using GoodHamburger.App.Utils
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using System.Text.Json
+@inject HttpClient http
+@inject NavigationManager navegation
+@inject IJSRuntime js
+
+<h3>Novo Pedido</h3>
+
+<EditForm Model="order" OnValidSubmit="SendForm" FormName="createOrderForm" Context="editContext">
+    <DataAnnotationsValidator />
+
+    <div class="card shadow my-4 border-0 rounded-3">
+        <div class="card-body">
+            <h5>Adicionar produto</h5>
+            <p class="text-muted">Permitido um produto de cada tipo (Sanduiche, Batata, Bebida)</p>
+
+            <div class="d-flex gap-2 align-items-end">
+                <div class="flex-grow-1">
+                    <label>Produto</label>
+                    <select class="form-control" @bind="selectedProductId">
+                        <option value="0">Selecione um produto...</option>
+                        @foreach (var product in Products)
+                        {
+                            var alreadyAdded = order.Items.Any(i => i.ProductType == product.ProductType);
+                            <option value="@product.Id" disabled="@alreadyAdded">
+                                @product.Name - @product.Price.ToString("C2") (@product.ProductType)@(alreadyAdded ? " (Ja adicionado)" : "")
+                            </option>
+                        }
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" @onclick="AddProduct">
+                    + Adicionar
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(addError))
+            {
+                <div class="alert alert-warning mt-2 py-2">@addError</div>
+            }
+        </div>
+    </div>
+
+    @if (order.Items.Count > 0)
+    {
+        <div class="card shadow my-4 border-0 rounded-3">
+            <div class="card-body">
+                <h5>Itens do Pedido</h5>
+                <table class="table table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Produto</th>
+                            <th>Tipo</th>
+                            <th>Preco</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in order.Items.ToList())
+                        {
+                            <tr>
+                                <td>@item.ProductName</td>
+                                <td>@item.ProductType.GetDescription()</td>
+                                <td>@item.CurrentPrice.ToString("C2")</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveItem(item)">
+                                        Remover
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3"><strong>Subtotal</strong></td>
+                            <td><strong>@subtotal.ToString("C2")</strong></td>
+                        </tr>
+                        <tr>
+                            <td colspan="3">Desconto@(discount > 0 ? $" ({discountPercent}%)" : "")</td>
+                            <td>- @discount.ToString("C2")</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3"><strong>Total</strong></td>
+                            <td><strong>@total.ToString("C2")</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    }
+
+    <button class="btn btn-success">Salvar Pedido</button>
+    <a href="/orders" class="btn btn-secondary">Voltar</a>
+</EditForm>
+
+@code {
+    CreateOrder order = new() { Items = new List<CreateOrderItem>() };
+    ICollection<Product> Products { get; set; } = new List<Product>();
+
+    private long selectedProductId = 0;
+    private string addError = string.Empty;
+
+    private decimal subtotal;
+    private decimal discount;
+    private decimal total;
+    private int discountPercent => discount == 0 ? 0 : (int)Math.Round(discount / subtotal * 100);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    async Task LoadProducts()
+    {
+        var httpResponse = await http.GetAsync("Product/getall");
+
+        if (httpResponse.IsSuccessStatusCode)
+        {
+            var responseString = await httpResponse.Content.ReadAsStringAsync();
+            Products = JsonSerializer.Deserialize<List<Product>>(
+                responseString,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            ) ?? new List<Product>();
+        }
+    }
+
+    void AddProduct()
+    {
+        addError = string.Empty;
+
+        if (selectedProductId == 0)
+        {
+            addError = "Selecione um produto antes de adicionar.";
+            return;
+        }
+
+        var product = Products.FirstOrDefault(p => p.Id == selectedProductId);
+        if (product == null) return;
+
+        if (order.Items.Any(i => i.ProductType == product.ProductType))
+        {
+            addError = $"Ja existe um produto do tipo '{product.ProductType}' no pedido. Remova-o antes de adicionar outro.";
+            return;
+        }
+
+        order.Items.Add(new CreateOrderItem
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            ProductType = product.ProductType,
+            CurrentPrice = product.Price
+        });
+
+        selectedProductId = 0;
+        CalculateTotals();
+    }
+
+    void RemoveItem(CreateOrderItem item)
+    {
+        order.Items.Remove(item);
+        addError = string.Empty;
+        CalculateTotals();
+    }
+
+    void CalculateTotals()
+    {
+        subtotal = order.Items.Sum(i => i.CurrentPrice);
+
+        var hasSandwich = order.Items.Any(i => i.ProductType == ProductType.Sandwich);
+        var hasFries    = order.Items.Any(i => i.ProductType == ProductType.Fries);
+        var hasDrink    = order.Items.Any(i => i.ProductType == ProductType.Drink);
+
+        if (hasSandwich && hasFries && hasDrink)
+            discount = subtotal * 0.20m;
+        else if (hasSandwich && hasDrink)
+            discount = subtotal * 0.15m;
+        else if (hasSandwich && hasFries)
+            discount = subtotal * 0.10m;
+        else
+            discount = 0;
+
+        total = subtotal - discount;
+    }
+
+    async Task SendForm()
+    {
+        if (order.Items.Count == 0)
+        {
+            await js.InvokeVoidAsync("SweetAlert", new SweetAlertData(System.Net.HttpStatusCode.BadRequest, "Selecione pelo menos um produto!"));
+            return;
+        }
+
+        HttpResponseMessage response = await http.PostAsJsonAsync("Order", order);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await js.InvokeVoidAsync("SweetAlert", new SweetAlertData(response.StatusCode, "Pedido criado com sucesso!"));
+            Back();
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            await js.InvokeVoidAsync("SweetAlert", new SweetAlertData(response.StatusCode, $"Erro ao criar o pedido: {errorContent}"));
+        }
+    }
+
+    protected void Back() => navegation.NavigateTo("orders");
+}

@@ -1,0 +1,186 @@
+@page "/orders"
+@using GoodHamburger.APP.Components
+@using GoodHamburger.APP.Extensions
+@using GoodHamburger.APP.Models.Order
+@using GoodHamburger.App.Utils
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using System.Text.Json
+@inject HttpClient http
+@inject IJSRuntime js
+
+<PageTitle>Pedidos</PageTitle>
+
+<h2>Pedidos</h2>
+
+<div class="row my-2">
+    <div class="col-3">
+        <a href="orders/new" class="btn btn-primary">Novo Pedido</a>
+    </div>
+</div>
+
+<div class="card shadow my-4 border-0 rounded-3">
+    <div class="card-body">
+        <div class="row justify-content-end">
+            <div class="col-12 col-md-7">
+                <div class="input-group">
+                    <input type="text" class="form-control mb-2 mr-sm-2" @bind="searchString" placeholder="buscar por id..." />
+                    <div @onclick="Search" class="btn btn-primary mr-sm-2 mb-2">Buscar</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="card shadow my-4 border-0 rounded-3">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <td>Id</td>
+                    <td>Subtotal</td>
+                    <td>Desconto</td>
+                    <td>Total</td>
+                    <td>Itens</td>
+                    <td>Ações</td>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Orders == null)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center">Carregando pedidos...</td>
+                    </tr>
+                }
+                else if (Orders.Count() <= 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted font-italic font-weight-normal bg-light">Nenhum pedido cadastrado no momento.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var order in Orders)
+                    {
+                        <tr>
+                            <td>@order.Id</td>
+                            <td>@order.Subtotal.ToString("C2")</td>
+                            <td>@order.Discount.ToString("C2")</td>
+                            <td>@order.Total.ToString("C2")</td>
+                            <td>@(order.OrderItems?.Count ?? 0) itens</td>
+                            <td>
+                                <a class="btn btn-primary" href="@($"/orders/edit/{order.Id}")">
+                                    Editar
+                                </a>
+                                <div class="btn btn-danger" @onclick="(() => Delete(order))">
+                                    Deletar
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <Paginator 
+            TotalCount="totalCount"
+            CurrentPage="currentPage"
+            Radius="2"
+            SelectedPage="SelectedPage">
+        </Paginator>
+    </div>
+</div>
+
+@if (ShowBackdrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+
+@code {
+    ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    private int totalCount;
+    private int currentPage = 0;
+    private string searchString = string.Empty;
+
+    public string ModalDisplay = "none;";
+    public string ModalClass = "";
+    public bool ShowBackdrop = false;
+
+    public void Open()
+    {
+        ModalDisplay = "block;";
+        ModalClass = "Show";
+        ShowBackdrop = true;
+        StateHasChanged();
+    }
+
+    public void Close()
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task Search()
+    {
+        currentPage = 0;
+        await LoadData();
+    }
+
+    private async Task SelectedPage(int page)
+    {
+        currentPage = page;
+        await LoadData(currentPage);
+    }
+
+    async Task LoadData(int page = 1, int perPage = 5)
+    {
+        var httpResponse = await http.GetAsync($"Order?currentPage={currentPage}&perPage={perPage}&searchString={searchString}");
+
+        if (httpResponse.IsSuccessStatusCode)
+        {
+            var responseString = await httpResponse.Content.ReadAsStringAsync();
+            var getAllResponse = JsonSerializer.Deserialize<GetAllResponse<Order>>(
+				responseString,
+                new JsonSerializerOptions()
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+            if (getAllResponse != null)
+            {
+                totalCount = getAllResponse.TotalCount;
+                Orders = getAllResponse.Rows ?? new List<Order>();
+            }
+        }
+    }
+
+    async Task Delete(Order order)
+    {
+        bool alertResponse = await js.InvokeAsync<bool>("SweetAlertWithConfirm", new SweetAlertData { 
+            Message = $"O Pedido <b>#{order.Id}</b> será deletado!", 
+            Title = "Ops! Você tem certeza disso?", 
+            Icon = EnumSweetAlertIcon.warning.ToString() 
+        });
+        if (alertResponse)
+        {
+            HttpResponseMessage response = await http.DeleteAsync($"Order/{order.Id}");
+            var aersa = new ApiErrorResponseToSweetAlert(response);
+            await js.InvokeVoidAsync("SweetAlert", await aersa.Alert("Pedido deletado com sucesso."));
+            if (aersa.Success())
+            {
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+}

@@ -1,0 +1,63 @@
+﻿@page "/products/new"
+@using GoodHamburger.APP.Extensions
+@using GoodHamburger.APP.Models.Product
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using GoodHamburger.App.Utils
+@inject HttpClient http
+@inject NavigationManager navegation
+@inject IJSRuntime js
+
+<h3>Novo Produto</h3>
+
+<EditForm Model="product" OnValidSubmit="SendForm" FormName="createProductForm" Context="editContext">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label>Nome (@product.Name)</label>
+        <InputText class="form-control" @bind-Value="product.Name" />
+        <ValidationMessage For="() => product.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label>Preço (@product.Price)</label>
+        <InputNumber class="form-control" @bind-value="product.Price" />
+        <ValidationMessage For="() => product.Price" />
+    </div>
+
+    <div class="mb-3">
+        <label>Tipo (@product.ProductType)</label>
+        <InputSelect class="form-control" @bind-value="product.ProductType">
+            <option value="@ProductType.Sandwich">@ProductType.Sandwich.GetDescription()</option>
+            <option value="@ProductType.Fries">@ProductType.Fries.GetDescription()</option>
+            <option value="@ProductType.Drink">@ProductType.Drink.GetDescription()</option>
+        </InputSelect>
+        <ValidationMessage For="() => product.ProductType" />
+    </div>
+
+    <button class="btn btn-success">Salvar</button>
+    <a href="/products" class="btn btn-secondary">Voltar</a>
+</EditForm>
+
+@code {
+    CreateProduct product = new();
+
+    async Task SendForm()
+    {
+        HttpResponseMessage response;
+
+        response = await http.PostAsJsonAsync("Product", product);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await js.InvokeVoidAsync("SweetAlert", new SweetAlertData(response.StatusCode, "Produto criado com sucesso!"));
+			Back();
+        }
+        else
+        {
+            await js.InvokeVoidAsync("SweetAlert", new SweetAlertData(response.StatusCode, "Erro ao criar o produto!"));
+        }
+    }
+
+    protected void Back() => navegation.NavigateTo("products");
+}

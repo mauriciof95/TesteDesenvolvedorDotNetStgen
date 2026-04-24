@@ -1,0 +1,65 @@
+﻿@page "/products/edit/{id:long}"
+@inject HttpClient http
+@inject NavigationManager navegation
+@inject IJSRuntime js
+@using GoodHamburger.APP.Extensions
+@using GoodHamburger.APP.Models.Product
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using GoodHamburger.App.Utils
+
+<h3>Novo Produto</h3>
+
+<EditForm Model="product" OnValidSubmit="SendForm">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label>Nome</label>
+        <InputText class="form-control" @bind-Value="product.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label>Preço</label>
+        <InputNumber class="form-control" @bind-Value="product.Price" />
+    </div>
+
+    <div class="mb-3">
+        <label>Tipo</label>
+        <InputSelect class="form-control" @bind-Value="product.ProductType">
+            <option value="@ProductType.Sandwich">@ProductType.Sandwich.GetDescription()</option>
+            <option value="@ProductType.Fries">@ProductType.Fries.GetDescription()</option>
+            <option value="@ProductType.Drink">@ProductType.Drink.GetDescription()</option>
+        </InputSelect>
+    </div>
+
+    <button class="btn btn-success">Salvar</button>
+    <a href="/products" class="btn btn-secondary">Voltar</a>
+</EditForm>
+
+@code {
+    Product product = new ();
+
+    [Parameter]
+    public long id { get; set; }
+
+
+    protected async override void OnParametersSet()
+    {
+        if (id > 0)
+        {
+            product = await http.GetFromJsonAsync<Product>($"Product/{id}");
+            StateHasChanged();
+        }
+    }
+
+    async Task SendForm()
+    {
+        HttpResponseMessage response;
+        response = await http.PutAsJsonAsync($"Product/{id}", product);
+
+        await js.InvokeVoidAsync("SweetAlert", new SweetAlertData(response.StatusCode, "Produto atualizado com sucesso!"));
+        Back();
+    }
+
+    protected void Back() => navegation.NavigateTo("products");
+}

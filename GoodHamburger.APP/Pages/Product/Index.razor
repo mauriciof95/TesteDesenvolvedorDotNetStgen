@@ -1,0 +1,182 @@
+﻿@page "/products"
+@using GoodHamburger.APP.Components
+@using GoodHamburger.APP.Extensions
+@using GoodHamburger.APP.Models
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using Product = GoodHamburger.APP.Models.Product.Product
+@using System.Text.Json
+@using GoodHamburger.App.Utils
+@inject HttpClient http
+@inject IJSRuntime js
+
+<PageTitle>Produtos</PageTitle>
+
+<h2>Produto</h2>
+
+<div class="row my-2">
+    <div class="col-3">
+        <a href="products/new" class="btn btn-primary">Novo Produto</a>
+    </div>
+</div>
+
+<div class="card shadow my-4 border-0 rounded-3">
+    <div class="card-body">
+        <div class="row justify-content-end">
+            <div class="col-12 col-md-7">
+                <div class="input-group">
+                    <input type="text" class="form-control mb-2 mr-sm-2" @bind="searchString" placeholder="buscar por nome..." />
+                    <div @onclick="Search" class="btn btn-primary mr-sm-2 mb-2">Buscar</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="card shadow my-4 border-0 rounded-3">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <td>Nome</td>
+                    <td>Preço</td>
+                    <td>Tipo</td>
+                    <td>Ações</td>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Products == null)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center">Carregando produtos...</td>
+                    </tr>
+                }
+                else if (Products.Count() <= 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted font-italic font-weight-normal bg-light">Nenhum produto cadastrado no momento.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var product in Products)
+                    {
+                        <tr>
+                            <td>@product.Name</td>
+                            <td>@product.Price.ToString("C2")</td>
+                            <td>@product.ProductType.GetDescription()</td>
+                            <td>
+
+                                <a class="btn btn-primary" href="@($"/products/edit/{product.Id}")">
+                                    Editar
+                                </a>
+                                <div class="btn btn-danger" @onclick="(() => Delete(product))">
+                                    Deletar
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <Paginator 
+            TotalCount="totalCount"
+            CurrentPage="currentPage"
+            Radius="2"
+            SelectedPage="SelectedPage">
+        </Paginator>
+    </div>
+</div>
+
+@if (ShowBackdrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+
+@code {
+
+    ICollection<Product> Products { get; set; }
+
+    private int totalCount;
+    private int currentPage = 0;
+    private string searchString = string.Empty;
+
+    public string ModalDisplay = "none;";
+    public string ModalClass = "";
+    public bool ShowBackdrop = false;
+
+    public void Open()
+    {
+        ModalDisplay = "block;";
+        ModalClass = "Show";
+        ShowBackdrop = true;
+        StateHasChanged();
+    }
+
+    public void Close()
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task Search()
+    {
+        currentPage = 0;
+        await LoadData();
+    }
+
+    private async Task SelectedPage(int page)
+    {
+        currentPage = page;
+        await LoadData(currentPage);
+    }
+
+    async Task LoadData(int page = 1, int perPage = 5)
+    {
+        var httpResponse = await http.GetAsync($"Product?currentPage={currentPage}&perPage={perPage}&searchString={searchString}");
+
+        if (httpResponse.IsSuccessStatusCode)
+        {
+            var responseString = await httpResponse.Content.ReadAsStringAsync();
+            var getAllResponse = JsonSerializer.Deserialize<GetAllResponse<Product>>(
+				responseString,
+                new JsonSerializerOptions()
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+            totalCount = getAllResponse.TotalCount;
+            Products = getAllResponse.Rows;
+        }
+    }
+
+    async Task Delete(Product product)
+    {
+        bool alertResponse = await js.InvokeAsync<bool>("SweetAlertWithConfirm", new SweetAlertData { 
+            Message = $"O Produto <b>{product.Name}</b> será deletado!", 
+            Title = "Ops! Você tem certeza disso?", 
+            Icon = EnumSweetAlertIcon.warning.ToString() 
+        });
+        if (alertResponse)
+        {
+            HttpResponseMessage response = await http.DeleteAsync($"Product/{product.Id}");
+            var aersa = new ApiErrorResponseToSweetAlert(response);
+            if (aersa.Success())
+            {
+            	await js.InvokeVoidAsync("SweetAlert", await aersa.Alert("Produto deletado com sucesso."));
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+}
