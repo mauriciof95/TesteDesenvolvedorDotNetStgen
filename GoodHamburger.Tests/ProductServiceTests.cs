@@ -5,6 +5,7 @@ using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Enums;
 using GoodHamburger.Domain.Exceptions;
 using GoodHamburger.Domain.Interfaces;
+using GoodHamburger.Tests.Helpers;
 using Moq;
 
 namespace GoodHamburger.Tests;
@@ -25,8 +26,8 @@ public class ProductServiceTests
 	{
 		var products = new Product[]
 		{
-			new() { Id = 1, Name = "X Burger", Price = 5, ProductType = ProductType.Sandwich },
-			new() { Id = 2, Name = "Batata", Price = 2, ProductType = ProductType.Fries }
+			new Product("X Burger", 5, ProductType.Sandwich).WithId(1),
+			new Product("Batata", 2, ProductType.Fries).WithId(2)
 		};
 
 		_productRepositoryMock
@@ -44,9 +45,9 @@ public class ProductServiceTests
 	{
 		var products = new Product[]
 		{
-			new() { Id = 1, Name = "X Burger", ProductType = ProductType.Sandwich },
-			new() { Id = 2, Name = "X Egg", ProductType = ProductType.Sandwich },
-			new() { Id = 3, Name = "Batata", ProductType = ProductType.Fries }
+			new Product("X Burger", 1, ProductType.Sandwich).WithId(1),
+			new Product("X Egg",    1, ProductType.Sandwich).WithId(2),
+			new Product("Batata",   1, ProductType.Fries).WithId(3)
 		};
 
 		_productRepositoryMock
@@ -63,13 +64,7 @@ public class ProductServiceTests
 	[Fact]
 	public void Deve_retornar_o_produto_por_id()
 	{
-		var product = new Product
-		{
-			Id = 1,
-			Name = "X Burger",
-			Price = 5,
-			ProductType = ProductType.Sandwich
-		};
+		var product = new Product("X Burger", 5, ProductType.Sandwich).WithId(1);
 
 		_productRepositoryMock
 			.Setup(x => x.GetById(1))
@@ -99,7 +94,7 @@ public class ProductServiceTests
 			.Setup(x => x.Create(It.IsAny<Product>()))
 			.Callback<Product>(p => 
 			{
-				p.Id = 10;
+				p.WithId(10);
 				createdProduct = p;
 			})
 			.Returns((Product p) => p);
@@ -123,13 +118,7 @@ public class ProductServiceTests
 	[Fact]
 	public void Deve_atualizar_o_produto_quando_existir()
 	{
-		var product = new Product
-		{
-			Id = 1,
-			Name = "Old",
-			Price = 1,
-			ProductType = ProductType.Drink
-		};
+		var product = new Product("Old", 1, ProductType.Drink).WithId(1);
 
 		_productRepositoryMock
 			.Setup(x => x.GetById(1))
@@ -166,7 +155,7 @@ public class ProductServiceTests
 	[Fact]
 	public void Deve_deletar_o_produto_quando_existir()
 	{
-		var product = new Product { Id = 1 };
+		var product = new Product("Teste", 1, ProductType.Sandwich).WithId(1);
 
 		_productRepositoryMock
 			.Setup(x => x.GetById(1))

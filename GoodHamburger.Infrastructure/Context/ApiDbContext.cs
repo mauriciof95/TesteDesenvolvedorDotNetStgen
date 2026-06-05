@@ -46,22 +46,23 @@ public class ApiDbContext : DbContext
     {
         var entries = ChangeTracker.Entries<BaseEntity>();
 
+        var currentDate = DateTime.UtcNow;
+
         foreach (var entry in entries)
         {
             switch (entry.State)
             {
                 case EntityState.Added:
-                    entry.Entity.CreatedAt = DateTime.UtcNow;
-                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+                    entry.Entity.SetCreatedAt(currentDate);
                     break;
 
                 case EntityState.Modified:
-                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+                    entry.Entity.SetUpdatedAt(currentDate);
                     break;
 
                 case EntityState.Deleted:
                     entry.State = EntityState.Modified;
-                    entry.Entity.DeletedAt = DateTime.UtcNow;
+                    entry.Entity.SetDeletedAt(currentDate);
                     break;
             }
         }

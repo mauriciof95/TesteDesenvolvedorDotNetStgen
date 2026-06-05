@@ -4,6 +4,7 @@ using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Enums;
 using GoodHamburger.Domain.Exceptions;
 using GoodHamburger.Domain.Interfaces;
+using GoodHamburger.Tests.Helpers;
 using Moq;
 
 namespace GoodHamburger.Tests;
@@ -31,9 +32,9 @@ public class OrderServiceTests
     {
         var products = new Product[]
         {
-            new() { Id = 1, Name = "X Burger", Price = 5, ProductType = ProductType.Sandwich },
-            new() { Id = 4, Name = "Batata", Price = 2, ProductType = ProductType.Fries },
-            new() { Id = 5, Name = "Refri", Price = 2.5m, ProductType = ProductType.Drink }
+            new Product("X Burger", 5,    ProductType.Sandwich).WithId(1),
+            new Product("Batata",   2,    ProductType.Fries).WithId(4),
+            new Product("Refri",    2.5m, ProductType.Drink).WithId(5),
         };
 
         _productRepositoryMock
@@ -68,8 +69,8 @@ public class OrderServiceTests
     {
         var products = new Product[]
         {
-            new() { Id = 1, Name = "X Burger", Price = 5, ProductType = ProductType.Sandwich },
-            new() { Id = 5, Name = "Refri", Price = 2.5m, ProductType = ProductType.Drink }
+            new Product("X Burger", 5, ProductType.Sandwich).WithId(1),
+            new Product("Refri", 2.5m, ProductType.Drink).WithId(5),
         };
 
         _productRepositoryMock
@@ -103,8 +104,8 @@ public class OrderServiceTests
     {
         var products = new Product[]
         {
-            new() { Id = 1, Price = 5, ProductType = ProductType.Sandwich },
-            new() { Id = 4, Price = 2, ProductType = ProductType.Fries }
+            new Product("Teste", 5, ProductType.Sandwich ).WithId(1),
+            new Product("Teste2", 2, ProductType.Fries).WithId(4)
         };
 
         _productRepositoryMock
@@ -138,8 +139,8 @@ public class OrderServiceTests
     {
         var products = new Product[]
         {
-            new() { Id = 1, ProductType = ProductType.Sandwich },
-            new() { Id = 2, ProductType = ProductType.Sandwich }
+            new Product("Teste",  1, ProductType.Sandwich).WithId(1),
+            new Product("Teste2", 2, ProductType.Sandwich).WithId(2)
         };
 
         _productRepositoryMock
@@ -192,7 +193,6 @@ public class OrderServiceTests
 	{
 		var order = new Order
 		{
-			Id = 1,
 			Subtotal = 9.5m,
 			Discount = 1.9m,
 			Total = 7.6m,
@@ -202,7 +202,7 @@ public class OrderServiceTests
 				new() { ProductType = ProductType.Drink, CurrentPrice = 2.5m },
 				new() { ProductType = ProductType.Fries, CurrentPrice = 2 }
 			}
-		};
+		}.WithId(1);
 
 		_orderRepositoryMock
 			.Setup(x => x.GetByIdWithItems(1))
@@ -231,12 +231,11 @@ public class OrderServiceTests
 	{
 		var order = new Order
 		{
-			Id = 1,
 			OrderItems = new List<OrderItem>
 			{
 				new() { ProductType = ProductType.Sandwich, CurrentPrice = 5 }
 			}
-		};
+		}.WithId(1);
 
 		_orderRepositoryMock
 			.Setup(x => x.GetByIdWithItems(1))

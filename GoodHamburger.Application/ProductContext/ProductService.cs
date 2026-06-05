@@ -62,12 +62,11 @@ public class ProductService
 
     public long Create(CreateProductDTO dto)
     {
-        var product = new Product
-        {
-            Name = dto.Name,
-            Price = dto.Price,
-            ProductType = dto.ProductType,
-        };
+        var product = new Product(
+            dto.Name,
+            dto.Price,
+            dto.ProductType
+        );
 
         product = _productRepository.Create(product);
         _productRepository.Commit();
@@ -80,11 +79,13 @@ public class ProductService
         var product = _productRepository.GetById(id);
 
         if (product is null) throw new NotFoundException();
-
-        product.Name = dto.Name;
-        product.Price = dto.Price;
-        product.ProductType = dto.ProductType;
-
+        
+        product.Update(
+            dto.Name,
+            dto.Price,
+            dto.ProductType
+        );
+ 
         _productRepository.Update(product);
         _productRepository.Commit();
     }

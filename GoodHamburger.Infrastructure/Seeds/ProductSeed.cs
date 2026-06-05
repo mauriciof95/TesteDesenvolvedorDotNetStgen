@@ -11,11 +11,11 @@ internal class ProductSeed
 
         return new Product[]
         {
-            new Product { Id = 1, Name = "X Burger", Price = 5.00m, ProductType = ProductType.Sandwich, CreatedAt = date, UpdatedAt = date },
-            new Product { Id = 2, Name = "X Egg", Price = 4.50m, ProductType = ProductType.Sandwich, CreatedAt = date, UpdatedAt = date  },
-            new Product { Id = 3, Name = "X Bacon", Price = 7.00m, ProductType = ProductType.Sandwich, CreatedAt = date, UpdatedAt = date  },
-            new Product { Id = 4, Name = "Batata frita", Price = 2.00m, ProductType = ProductType.Fries, CreatedAt = date, UpdatedAt = date  },
-            new Product { Id = 5, Name = "Refrigerante", Price = 2.50m, ProductType = ProductType.Drink, CreatedAt = date, UpdatedAt = date  },
+            new Product("X Burger", 5.00m, ProductType.Sandwich).SetCreatedAt(date) as Product,
+            new Product("X Egg", 4.50m, ProductType.Sandwich).SetCreatedAt(date) as Product,
+            new Product("X Bacon", 7.00m, ProductType.Sandwich).SetCreatedAt(date) as Product,
+            new Product("Batata frita", 2.00m, ProductType.Fries).SetCreatedAt(date) as Product,
+            new Product("Refrigerante", 2.50m, ProductType.Drink).SetCreatedAt(date) as Product,
         };
     }
 }
