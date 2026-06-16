@@ -1,5 +1,6 @@
 ﻿using GoodHamburger.Application.OrderContext;
 using GoodHamburger.Application.OrderContext.DTOs;
+using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Utils;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,36 +16,40 @@ public class OrderController : GHControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAllPaged([FromQuery] BaseSearchParameters searchPrameters)
+    public async Task<IActionResult> GetAllPaged(
+        [FromQuery] BaseSearchParameters<Order> searchPrameters,
+        CancellationToken cancellationToken)
     {
-        return Ok(_orderServices.Search(searchPrameters));
+        return Ok(await _orderServices.SearchAsync(searchPrameters, cancellationToken));
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] CreateOrderDTO dto)
+    public async Task<IActionResult> Create(
+        [FromBody] CreateOrderDTO dto,
+        CancellationToken cancellationToken)
     {
-        _orderServices.Create(dto);
+        await _orderServices.CreateAsync(dto, cancellationToken);
         return Created();
     }
 
     [HttpGet("{id:long}")]
-    public IActionResult GetById(long id)
+    public async Task<IActionResult> GetById(long id, CancellationToken cancellationToken)
     {
-        return Ok(_orderServices.GetById(id));
+        return Ok(await _orderServices.GetByIdAsync(id, cancellationToken));
     }
 
 
     [HttpPut("{id:long}")]
-    public IActionResult Update([FromBody] UpdateOrderDTO dto, long id)
+    public async Task<IActionResult> Update([FromBody] UpdateOrderDTO dto, long id, CancellationToken cancellationToken)
     {
-        _orderServices.Update(dto, id);
+        await _orderServices.UpdateAsync(dto, id, cancellationToken);
         return Ok();
     }
 
     [HttpDelete("{id:long}")]
-    public IActionResult Delete(long id)
+    public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
     {
-        _orderServices.Delete(id);
+        await _orderServices.DeleteAsync(id, cancellationToken);
         return NoContent();
     }
 }
