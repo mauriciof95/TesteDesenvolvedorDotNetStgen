@@ -1,8 +1,10 @@
 ﻿using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Interfaces;
 using GoodHamburger.Domain.Utils;
+using GoodHamburger.Extensions;
 using GoodHamburger.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GoodHamburger.Infrastructure.Repositories;
 
@@ -13,62 +15,29 @@ public abstract class BaseRepository<TEntity> : IRepository<TEntity> where TEnti
 
     public BaseRepository(ApiDbContext context)
     {
-        _context = context;
-        if (context != null)
-            _db = context.Set<TEntity>();
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _db = context.Set<TEntity>();
     }
 
-    public void Commit()
-        => _context.SaveChanges();
+    private IQueryable<TEntity> Queryable(bool includeDeleted = false)
+        => !includeDeleted
+            ? _db.AsQueryable()
+            : _db.IgnoreQueryFilters().AsQueryable();
 
-    private IQueryable<TEntity> Queryable()
-        => _db.AsQueryable();
+    public virtual async Task<TEntity?> GetByIdAsync(long id, CancellationToken ct = default)
+        => await _db.FindAsync(new object[] { id }, ct);
 
-    public IQueryable<TEntity> AsNoTracking(IQueryable<TEntity> query)
-        => query.AsNoTracking();
-
-    public virtual TEntity GetById(long id)
-        => _db.Find(id);
-
-    public virtual TEntity[] GetByIds(long[] ids)
-        => _db.Where(x => ids.Contains(x.Id)).ToArray();
-
-    public virtual TEntity[] GetAll(bool includeDeleted = false)
+    public virtual async Task<TEntity[]> GetByIdsAsync(long[] ids, CancellationToken ct = default)
     {
-        return (!includeDeleted
-                    ? _db.Where(x => !x.DeletedAt.HasValue)
-                    : _db
-               ).AsNoTracking().ToArray();
+        if (ids == null || ids.Length == 0) return Array.Empty<TEntity>();
+        return await _db.Where(x => ids.Contains(x.Id)).ToArrayAsync(ct);
     }
 
-    public virtual PagedQueryResult<TEntity> GetPagedResult(BaseSearchParameters parameters)
-    {
-        var pagedResult = new PagedQueryResult<TEntity>();
+    public virtual async Task<TEntity[]> GetAllAsync(bool includeDeleted = false, CancellationToken ct = default)
+        => await Queryable(includeDeleted).AsNoTracking().ToArrayAsync(ct);
 
-        var query = Queryable().Where(x => !x.DeletedAt.HasValue);
-
-        query = ApplyPagedFilter(query, parameters);
-
-        pagedResult.TotalCount = query.Count();
-
-        query = parameters.OrderType == "asc"
-            ? query.OrderBy(x => x.Id)
-            : query.OrderByDescending(x => x.Id);
-        
-        query = query.Skip(parameters.PerPage * parameters.CurrentPage).Take(parameters.PerPage);
-
-        query = ApplyIncludes(query);
-
-        pagedResult.Rows = query.ToList();
-
-        return pagedResult;
-    }
-
-    public virtual IQueryable<TEntity> ApplyIncludes(IQueryable<TEntity> query)
-        => query;
-
-    public virtual IQueryable<TEntity> ApplyPagedFilter(IQueryable<TEntity> query, BaseSearchParameters parameters)
-        => query;
+    public virtual async Task<PagedQueryResult<TEntity>> GetPagedResultAsync(BaseSearchParameters<TEntity> parameters, CancellationToken ct = default)
+        => await _db.AsNoTracking().PaginateAsync(parameters, ct);
 
     public virtual TEntity Create(TEntity entity)
     {
@@ -81,16 +50,4 @@ public abstract class BaseRepository<TEntity> : IRepository<TEntity> where TEnti
 
     public virtual void Delete(TEntity entity)
         => _db.Remove(entity);
-
-    public void CommitTransaction()
-    {
-        var transaction = _context.Database.CurrentTransaction;
-        if (transaction != null)
-            transaction.Commit();
-    }
-    public void BeginTransaction()
-        => _context.Database.BeginTransaction();
-
-    public void Rollback()
-        => _context.Database.RollbackTransaction();
 }

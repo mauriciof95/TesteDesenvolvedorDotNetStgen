@@ -1,7 +1,10 @@
-﻿using GoodHamburger.Domain.Entities;
+﻿using System.Threading.Tasks;
+using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Interfaces;
 using GoodHamburger.Domain.Utils;
+using GoodHamburger.Extensions;
 using GoodHamburger.Infrastructure.Context;
+using Microsoft.EntityFrameworkCore;
 
 namespace GoodHamburger.Infrastructure.Repositories;
 
@@ -11,11 +14,12 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
     }
 
-    public override IQueryable<Product> ApplyPagedFilter(IQueryable<Product> query, BaseSearchParameters parameters)
+    public override async Task<PagedQueryResult<Product>> GetPagedResultAsync(BaseSearchParameters<Product> parameters, CancellationToken cancellationToken)
     {
-        if(!string.IsNullOrEmpty(parameters.SearchString))
-            return query.Where(x => x.Name.Contains(parameters.SearchString));
+        var result = await _db.AsNoTracking()
+            .Where(x => string.IsNullOrEmpty(parameters.SearchString) || x.Name.Contains(parameters.SearchString))
+            .PaginateAsync(parameters, cancellationToken);
 
-        return query;
+        return result;
     }
 }

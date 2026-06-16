@@ -1,10 +1,10 @@
 ﻿using GoodHamburger.Application.OrderContext.DTOs;
-using GoodHamburger.Application.ProductContext.DTOs;
 using GoodHamburger.Application.Utils;
 using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Enums;
 using GoodHamburger.Domain.Exceptions;
 using GoodHamburger.Domain.Interfaces;
+using GoodHamburger.Domain.UnitOfWork;
 using GoodHamburger.Domain.Utils;
 
 namespace GoodHamburger.Application.OrderContext;
@@ -14,17 +14,24 @@ public class OrderService
     private readonly IOrderRepository _orderRepository;
     private readonly IProductRepository _productRepository;
 
-    public OrderService(IOrderRepository orderRepository, IProductRepository productRepository)
+    private readonly IUnitOfWork _unitOfWork;
+
+    public OrderService(
+        IOrderRepository orderRepository, 
+        IProductRepository productRepository,
+        IUnitOfWork unitOfWork
+    )
     {
         _orderRepository = orderRepository;
         _productRepository = productRepository;
+        _unitOfWork = unitOfWork;
     }
 
-    public PagedResultDTO<OrderDTO> Search(BaseSearchParameters parameters)
+    public async Task<PagedResultDTO<OrderDTO, Order>> SearchAsync(BaseSearchParameters<Order> parameters, CancellationToken cancellationToken)
     {
-        var result = _orderRepository.GetPagedResult(parameters);
+        var result = await _orderRepository.GetPagedResultAsync(parameters, cancellationToken);
 
-        var pagedResult = new PagedResultDTO<OrderDTO>();
+        var pagedResult = new PagedResultDTO<OrderDTO, Order>();
         pagedResult.TotalCount = result.TotalCount;
         pagedResult.SearchParameters = parameters;
         pagedResult.Rows = OrderDTO.ToDTO(result.Rows);
@@ -32,23 +39,23 @@ public class OrderService
         return pagedResult;
     }
 
-    public OrderDTO GetById(long id)
+    public async Task<OrderDTO> GetByIdAsync(long id, CancellationToken cancellationToken)
     {
-        var order = _orderRepository.GetByIdWithItems(id);
+        var order = await _orderRepository.GetByIdWithItemsAsync(id, cancellationToken);
 
         if (order is null) throw new NotFoundException();
 
         return new OrderDTO(order);
     }
 
-    public long Create(CreateOrderDTO dto)
+    public async Task<long> CreateAsync(CreateOrderDTO dto, CancellationToken cancellationToken)
     {
         if (dto.Items == null || !dto.Items.Any())
             throw new BadRequestException("O Pedido precisar conter pelo menos 1 produto.");
 
         var productIds = dto.Items.Select(i => i.ProductId).ToArray();
 
-        var products = _productRepository.GetByIds(productIds);
+        var products = await _productRepository.GetByIdsAsync(productIds, cancellationToken);
 
         var orderItems = new List<OrderItem>();
         
@@ -84,7 +91,7 @@ public class OrderService
         };
 
         order = _orderRepository.Create(order);
-        _orderRepository.Commit();
+        await _unitOfWork.CommitAsync(cancellationToken);
 
         return order.Id;
     }
@@ -111,9 +118,9 @@ public class OrderService
         return (total, subtotal, discount);
     }
 
-    public void Update(UpdateOrderDTO dto, long id)
+    public async Task UpdateAsync(UpdateOrderDTO dto, long id, CancellationToken cancellationToken)
     {
-        var order = _orderRepository.GetByIdWithItems(id);
+        var order = await _orderRepository.GetByIdWithItemsAsync(id, cancellationToken);
 
         if (order is null) throw new NotFoundException();
 
@@ -122,7 +129,7 @@ public class OrderService
 
         var productIds = dto.Items.Select(i => i.ProductId).ToArray();
 
-        var products = _productRepository.GetByIds(productIds);
+        var products = await _productRepository.GetByIdsAsync(productIds, cancellationToken);
 
         var updatedOrderItems = new List<OrderItem>();
 
@@ -131,7 +138,7 @@ public class OrderService
             var product = products.FirstOrDefault(x => x.Id == i.ProductId);
 
             if (product is null)
-                new NotFoundException($"Produto {i.ProductId} não encontrado.");
+                throw new NotFoundException($"Produto {i.ProductId} não encontrado.");
 
             if (updatedOrderItems.Any(x => x.ProductType == product.ProductType))
                 throw new ValidationException("O Pedido não pode conter produtos do mesmo tipo.");
@@ -155,7 +162,7 @@ public class OrderService
         order.Total = computedValues.total;
         order.Discount = computedValues.discount;     
 
-        _orderRepository.BeginTransaction();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
         try
         {
@@ -163,23 +170,23 @@ public class OrderService
             _orderRepository.CreateOrderItems(updatedOrderItems);
             _orderRepository.Update(order);
 
-            _orderRepository.Commit();
-            _orderRepository.CommitTransaction();
+            await _unitOfWork.CommitAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
-        catch (Exception ex)
+        catch
         {
-            _orderRepository.Rollback();
-            throw ex;
+            await transaction.RollbackAsync();
+            throw;
         }
     }
 
-    public void Delete(long id)
+    public async Task DeleteAsync(long id, CancellationToken cancellationToken)
     {
-        var order = _orderRepository.GetByIdWithItems(id);
+        var order = await _orderRepository.GetByIdWithItemsAsync(id, cancellationToken);
 
         if (order is null) throw new NotFoundException();
 
-        _orderRepository.BeginTransaction();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             var items = order.OrderItems;
@@ -187,13 +194,13 @@ public class OrderService
             _orderRepository.DeleteOrderItens(items);
             _orderRepository.Delete(order);
 
-            _orderRepository.Commit();
-            _orderRepository.CommitTransaction();
+            await _unitOfWork.CommitAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
-        catch (Exception ex)
+        catch
         {
-            _orderRepository.Rollback();
-            throw ex;
+            await transaction.RollbackAsync();
+            throw;
         }
     }
 }

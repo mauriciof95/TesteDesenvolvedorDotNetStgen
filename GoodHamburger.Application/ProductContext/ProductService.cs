@@ -1,9 +1,11 @@
-﻿using GoodHamburger.Application.Extensions;
+﻿using System.Threading.Tasks;
+using GoodHamburger.Application.Extensions;
 using GoodHamburger.Application.ProductContext.DTOs;
 using GoodHamburger.Application.Utils;
 using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Exceptions;
 using GoodHamburger.Domain.Interfaces;
+using GoodHamburger.Domain.UnitOfWork;
 using GoodHamburger.Domain.Utils;
 
 namespace GoodHamburger.Application.ProductContext;
@@ -11,17 +13,23 @@ namespace GoodHamburger.Application.ProductContext;
 public class ProductService
 {
     private readonly IProductRepository _productRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public ProductService(IProductRepository productRepository)
+    public ProductService(
+        IProductRepository productRepository,
+        IUnitOfWork unitOfWork
+    )
     {
         _productRepository = productRepository;
+        _unitOfWork = unitOfWork;
     }
 
-    public PagedResultDTO<ProductDTO> Search(BaseSearchParameters parameters)
+    public async Task<PagedResultDTO<ProductDTO, Product>> SearchAsync(BaseSearchParameters<Product> parameters, CancellationToken cancellationToken)
     {
-        var result = _productRepository.GetPagedResult(parameters);
+        parameters.OrderBy = (x => x.Name);
+        var result = await _productRepository.GetPagedResultAsync(parameters, cancellationToken);
 
-        var pagedResult = new PagedResultDTO<ProductDTO>();
+        var pagedResult = new PagedResultDTO<ProductDTO, Product>();
         pagedResult.TotalCount = result.TotalCount;
         pagedResult.SearchParameters = parameters;
         pagedResult.Rows = ProductDTO.ToDTO(result.Rows);
@@ -29,15 +37,15 @@ public class ProductService
         return pagedResult;
     }
 
-    public object GetAll()
+    public async Task<object> GetAllAsync(CancellationToken cancellationToken)
     {
-        var products = _productRepository.GetAll();
+        var products = await _productRepository.GetAllAsync(false, cancellationToken);
         return ProductDTO.ToDTO(products.ToList());
     }
 
-    public MenuDTO[] GetMenu()
+    public async Task<MenuDTO[]> GetMenuAsync()
     {
-        var result = _productRepository.GetAll();
+        var result = await _productRepository.GetAllAsync();
 
         var menu = result.GroupBy(x => x.ProductType)
             .Select(x => new MenuDTO
@@ -51,16 +59,16 @@ public class ProductService
     }
 
 
-    public ProductDTO GetById(long id)
+    public async Task<ProductDTO> GetByIdAsync(long id)
     {
-        var product = _productRepository.GetById(id);
+        var product = await _productRepository.GetByIdAsync(id);
 
         if (product is null) throw new NotFoundException();
 
         return new ProductDTO(product);
     }
 
-    public long Create(CreateProductDTO dto)
+    public async Task<long> CreateAsync(CreateProductDTO dto)
     {
         var product = new Product(
             dto.Name,
@@ -69,14 +77,14 @@ public class ProductService
         );
 
         product = _productRepository.Create(product);
-        _productRepository.Commit();
+        await _unitOfWork.CommitAsync();
 
         return product.Id;
     }
 
-    public void Update(UpdateProductDTO dto, long id)
+    public async Task UpdateAsync(UpdateProductDTO dto, long id)
     {
-        var product = _productRepository.GetById(id);
+        var product = await _productRepository.GetByIdAsync(id);
 
         if (product is null) throw new NotFoundException();
         
@@ -87,16 +95,16 @@ public class ProductService
         );
  
         _productRepository.Update(product);
-        _productRepository.Commit();
+        await _unitOfWork.CommitAsync();
     }
 
-    public void Delete(long id)
+    public async Task DeleteAsync(long id)
     {
-        var product = _productRepository.GetById(id);
+        var product = await _productRepository.GetByIdAsync(id);
 
         if (product is null) throw new NotFoundException();
 
         _productRepository.Delete(product);
-        _productRepository.Commit();
+        await _unitOfWork.CommitAsync();
     }
 }

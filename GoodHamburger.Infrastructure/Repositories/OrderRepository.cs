@@ -1,6 +1,7 @@
 ﻿using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Interfaces;
 using GoodHamburger.Domain.Utils;
+using GoodHamburger.Extensions;
 using GoodHamburger.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,25 +16,17 @@ public class OrderRepository : BaseRepository<Order>, IOrderRepository
         _dbOrderItem = context.Set<OrderItem>();
     }
 
-    public override IQueryable<Order> ApplyPagedFilter(IQueryable<Order> query, BaseSearchParameters parameters)
+    public override async Task<PagedQueryResult<Order>> GetPagedResultAsync(BaseSearchParameters<Order> parameters, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrEmpty(parameters.SearchString))
-            return query.Where(x => x.Id.ToString() == parameters.SearchString);
+        var result = await _db.AsNoTracking()
+            .Where(x => string.IsNullOrEmpty(parameters.SearchString) || x.Id.ToString() == parameters.SearchString)
+            .PaginateAsync(parameters, cancellationToken);
 
-        return query;
+        return result;
     }
 
-    public override IQueryable<Order> ApplyIncludes(IQueryable<Order> query)
-    {
-        query = query.Include(x => x.OrderItems.Where(i => i.DeletedAt == null));
-        return query;
-    }
-
-    public Order GetByIdWithItems(long id)
-    {
-        return _db.Include(x => x.OrderItems.Where(i => i.DeletedAt == null))
-            .FirstOrDefault(x => x.Id == id);
-    }
+    public async Task<Order> GetByIdWithItemsAsync(long id, CancellationToken cancellationToken)
+        => await _db.Include(x => x.OrderItems).FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public void DeleteOrderItens(List<OrderItem> items)
         => _dbOrderItem.RemoveRange(items);

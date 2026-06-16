@@ -32,5 +32,7 @@ internal class OrderMap : IEntityTypeConfiguration<Order>
             .HasColumnName("updated_at");
         builder.Property(x => x.DeletedAt)
             .HasColumnName("deleted_at");
+
+        builder.HasQueryFilter(x => x.DeletedAt == null);
     }
 }
