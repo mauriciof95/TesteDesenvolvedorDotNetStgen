@@ -6,7 +6,6 @@ using GoodHamburger.Domain.Exceptions;
 using GoodHamburger.Domain.Interfaces;
 using GoodHamburger.Domain.UnitOfWork;
 using GoodHamburger.Tests.Helpers;
-using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
 
 namespace GoodHamburger.Tests;
@@ -26,10 +25,8 @@ public class OrderServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
 
         // Mock da transação para os testes que usam BeginTransactionAsync
-        var transactionMock = new Mock<IDbContextTransaction>();
         _unitOfWorkMock
-            .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(transactionMock.Object);
+            .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()));
 
         _service = new OrderService(
             _orderRepositoryMock.Object,
@@ -246,15 +243,13 @@ public class OrderServiceTests
             .Setup(x => x.Delete(It.IsAny<Order>()))
             .Throws(new Exception("Erro ao deletar pedido"));
 
-        var transactionMock = new Mock<IDbContextTransaction>();
         _unitOfWorkMock
-            .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(transactionMock.Object);
+            .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()));
 
         await Assert.ThrowsAsync<Exception>(() => _service.DeleteAsync(1, CancellationToken.None));
 
         _orderRepositoryMock.Verify(x => x.DeleteOrderItens(order.OrderItems), Times.Once);
-        transactionMock.Verify(x => x.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
-        transactionMock.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

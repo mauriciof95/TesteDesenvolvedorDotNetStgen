@@ -162,7 +162,7 @@ public class OrderService
         order.Total = computedValues.total;
         order.Discount = computedValues.discount;     
 
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
         try
         {
@@ -171,11 +171,11 @@ public class OrderService
             _orderRepository.Update(order);
 
             await _unitOfWork.CommitAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
         catch
         {
-            await transaction.RollbackAsync();
+            await _unitOfWork.RollbackTransactionAsync();
             throw;
         }
     }
@@ -186,7 +186,7 @@ public class OrderService
 
         if (order is null) throw new NotFoundException();
 
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             var items = order.OrderItems;
@@ -195,11 +195,11 @@ public class OrderService
             _orderRepository.Delete(order);
 
             await _unitOfWork.CommitAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
         catch
         {
-            await transaction.RollbackAsync();
+            await _unitOfWork.RollbackTransactionAsync();
             throw;
         }
     }

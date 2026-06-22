@@ -1,6 +1,5 @@
 ﻿using GoodHamburger.Domain.Entities;
 using GoodHamburger.Domain.Utils;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GoodHamburger.Domain.Interfaces;
 
