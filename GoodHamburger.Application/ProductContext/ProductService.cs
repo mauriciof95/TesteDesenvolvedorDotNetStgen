@@ -37,7 +37,7 @@ public class ProductService
         return pagedResult;
     }
 
-    public async Task<object> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<ProductDTO[]> GetAllAsync(CancellationToken cancellationToken)
     {
         var products = await _productRepository.GetAllAsync(false, cancellationToken);
         return ProductDTO.ToDTO(products.ToList());
